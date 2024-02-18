@@ -24,41 +24,44 @@ st.title("Real-Time Sign Language Recognition")
 
 class VideoProcessor(VideoProcessorBase):
     def recv(self, frame):
-        # Downscale the frame to reduce processing load
-        small_frame = cv2.resize(frame.to_ndarray(format="bgr24"), (144, 144), interpolation=cv2.INTER_AREA)
+        image = frame.to_ndarray(format="bgr24")
 
-        # Convert to RGB
-        small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        # Downscale the image for processing efficiency
+        target_width = 144  # Example width, adjust as necessary
+        height, width, _ = image.shape
+        scale_ratio = target_width / width
+        target_height = int(height * scale_ratio)
+        image = cv2.resize(image, (target_width, target_height))
 
-        # Process the image
-        results = mp_hands.process(small_frame)
+        # Convert the image from BGR to RGB
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Process the image with MediaPipe Hands
+        results = mp_hands.process(image)
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Simplified drawing for mobile; consider removing drawing to increase performance
-                # Draw only the wrist for reference
-                wrist = hand_landmarks.landmark[mp.solutions.hands.HandLandmark.WRIST]
-                cv2.circle(small_frame, (int(wrist.x * 144), int(wrist.y * 144)), 4, (0, 255, 0), -1)
+                # Previously here would be the drawing code for the skeleton, which we now omit
 
                 # Prepare data for prediction
-                data_aux = [landmark.x for landmark in hand_landmarks.landmark] + [landmark.y for landmark in hand_landmarks.landmark]
+                data_aux = []
+                for landmark in hand_landmarks.landmark:
+                    data_aux.extend([landmark.x, landmark.y])
 
                 # Predict the hand sign
                 prediction = model.predict([data_aux])
                 predicted_character = labels_dict[int(prediction[0])]
 
-                # Display the predicted character in a simple way
-                cv2.putText(small_frame, predicted_character, (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                # Display the predicted character on the image
+                # Adjust the position and scale of the text as needed for clarity
+                cv2.putText(image, f"Predicted: {predicted_character}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-        # Convert back to AV frame at original resolution for display
-        new_frame = av.VideoFrame.from_ndarray(small_frame, format="bgr24")
+        # Convert the processed image back to an AV frame
+        new_frame = av.VideoFrame.from_ndarray(image, format="bgr24")
         return new_frame
 
 # WebRTC configuration optimized for mobile
-webrtc_streamer(
-    key="example",
-    video_processor_factory=VideoProcessor,
-    media_stream_constraints={"video": True, "audio": False},
-    rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
-    layout="mobile"  # This is a hypothetical parameter for demonstration. Adjust layout settings as needed.
-)
+webrtc_streamer(key="example", video_processor_factory=VideoProcessor,
+                media_stream_constraints={"video": True, "audio": False},
+                rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}))
+

@@ -1,0 +1,15 @@
+runtime: custom
+env: flex
+
+# This section is optional if you want to specify manual scaling.
+manual_scaling:
+  instances: 1  # You can adjust the number of instances based on your needs.
+
+resources:
+  cpu: 2
+  memory_gb: 4
+  disk_size_gb: 10  # Adjust disk size as needed.
+
+env_variables:
+  PORT: 8080
+

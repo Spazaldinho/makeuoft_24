@@ -4,6 +4,9 @@ FROM python:3.8-slim
 # Set the working directory in the container to /app
 WORKDIR /app
 
+# Install system dependencies required for opencv
+RUN apt-get update && apt-get install -y libgl1-mesa-glx && rm -rf /var/lib/apt/lists/*
+
 # Copy the current directory contents into the container at /app
 COPY . /app
 

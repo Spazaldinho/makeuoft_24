@@ -2,20 +2,19 @@ from streamlit_webrtc import webrtc_streamer, RTCConfiguration, VideoProcessorBa
 import av
 import cv2
 import mediapipe as mp
+import numpy as np
 import pickle
 import streamlit as st
 
-# Load the trained model outside the recv method
+# Load the trained model
 model_dict = pickle.load(open("./model.p", "rb"))
 model = model_dict["model"]
 
-# Initialize MediaPipe Hands with mobile-optimized parameters
-mp_hands = mp.solutions.hands.Hands(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5,
-    max_num_hands=1  # Consider detecting only one hand to reduce complexity
-)
+# Initialize MediaPipe Hands
+mp_hands = mp.solutions.hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+mp_drawing = mp.solutions.drawing_utils
 
+# Updated label dictionary for your model's outputs
 labels_dict = {
     0: 'G', 1: 'U', 2: 'E', 3: 'L', 4: 'P', 5: 'H'
 }
@@ -26,22 +25,25 @@ class VideoProcessor(VideoProcessorBase):
     def recv(self, frame):
         image = frame.to_ndarray(format="bgr24")
 
-        # Downscale the image for processing efficiency
-        target_width = 144  # Example width, adjust as necessary
-        height, width, _ = image.shape
-        scale_ratio = target_width / width
-        target_height = int(height * scale_ratio)
-        image = cv2.resize(image, (target_width, target_height))
-
         # Convert the image from BGR to RGB
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Process the image with MediaPipe Hands
+        # Process the image and get the result
         results = mp_hands.process(image)
+
+        # Convert the image from RGB to BGR
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Previously here would be the drawing code for the skeleton, which we now omit
+                # Draw hand landmarks
+                mp_drawing.draw_landmarks(
+                    image,
+                    hand_landmarks,
+                    mp.solutions.hands.HAND_CONNECTIONS,
+                    mp_drawing.DrawingSpec(color=(121, 22, 76), thickness=2, circle_radius=4),
+                    mp_drawing.DrawingSpec(color=(250, 44, 250), thickness=2, circle_radius=2),
+                )
 
                 # Prepare data for prediction
                 data_aux = []
@@ -53,15 +55,13 @@ class VideoProcessor(VideoProcessorBase):
                 predicted_character = labels_dict[int(prediction[0])]
 
                 # Display the predicted character on the image
-                # Adjust the position and scale of the text as needed for clarity
-                cv2.putText(image, f"Predicted: {predicted_character}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(image, f"Predicted: {predicted_character}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
         # Convert the processed image back to an AV frame
         new_frame = av.VideoFrame.from_ndarray(image, format="bgr24")
         return new_frame
 
-# WebRTC configuration optimized for mobile
+# WebRTC streamer configuration
 webrtc_streamer(key="example", video_processor_factory=VideoProcessor,
                 media_stream_constraints={"video": True, "audio": False},
                 rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}))
-

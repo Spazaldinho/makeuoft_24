@@ -6,6 +6,6 @@ manual_scaling:
   instances: 1  # You can adjust the number of instances based on your needs.
 
 resources:
-  cpu: 2
-  memory_gb: 4
-  disk_size_gb: 10  # Adjust disk size as needed.
+  cpu: 5
+  memory_gb: 8
+  disk_size_gb: 20  # Adjust disk size as needed.
